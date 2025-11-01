@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { contentApi, userApi } from '@/lib/api';
 import { useAuthStore } from '@/lib/store';
+import { useNotifications } from '@/lib/notifications';
 import VideoPlayer from '@/components/VideoPlayer';
 import Link from 'next/link';
 import { FiBookmark, FiBookmarkCheck, FiPlay } from 'react-icons/fi';
@@ -11,6 +12,7 @@ import { FiBookmark, FiBookmarkCheck, FiPlay } from 'react-icons/fi';
 export default function ContentDetailPage() {
   const params = useParams();
   const { isAuthenticated } = useAuthStore();
+  const { showError, showWarning, showSuccess } = useNotifications();
   const [content, setContent] = useState<any>(null);
   const [episodes, setEpisodes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -59,7 +61,7 @@ export default function ContentDetailPage() {
 
   const handleBookmark = async () => {
     if (!isAuthenticated) {
-      alert('Please login to bookmark content');
+      showWarning('Please login to bookmark content', 'Login Required');
       return;
     }
 
@@ -67,18 +69,20 @@ export default function ContentDetailPage() {
       if (isBookmarked) {
         await userApi.removeBookmark(params.id as string);
         setIsBookmarked(false);
+        showSuccess('Bookmark removed', 'Success');
       } else {
         await userApi.addBookmark(params.id as string);
         setIsBookmarked(true);
+        showSuccess('Content bookmarked', 'Success');
       }
-    } catch (error) {
-      console.error('Error toggling bookmark:', error);
+    } catch (error: any) {
+      showError(error.response?.data?.message || 'Error updating bookmark', 'Error');
     }
   };
 
   const handleWatch = async () => {
     if (!isAuthenticated) {
-      alert('Please login to watch content');
+      showWarning('Please login to watch content', 'Login Required');
       return;
     }
 
@@ -86,7 +90,7 @@ export default function ContentDetailPage() {
       const response = await contentApi.watch(params.id as string);
       setWatchData(response.data);
     } catch (error: any) {
-      alert(error.response?.data?.message || 'Error loading video');
+      showError(error.response?.data?.message || 'Error loading video', 'Error');
     }
   };
 

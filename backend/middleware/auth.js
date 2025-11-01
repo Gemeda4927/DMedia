@@ -9,7 +9,8 @@ export const authenticate = async (req, res, next) => {
       return res.status(401).json({ message: 'Authentication required' });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+    const decoded = jwt.verify(token, JWT_SECRET);
     const user = await User.findById(decoded.userId);
 
     if (!user || !user.isActive) {

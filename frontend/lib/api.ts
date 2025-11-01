@@ -62,5 +62,13 @@ export const adminApi = {
   approveContent: (id: string) => api.post(`/admin/content/${id}/approve`),
 };
 
+export const notificationApi = {
+  getAll: (params?: any) => api.get('/notifications', { params }),
+  markAsRead: (id: string) => api.patch(`/notifications/${id}/read`),
+  markAllAsRead: () => api.patch('/notifications/read-all'),
+  delete: (id: string) => api.delete(`/notifications/${id}`),
+  deleteAll: () => api.delete('/notifications'),
+};
+
 export default api;
 
