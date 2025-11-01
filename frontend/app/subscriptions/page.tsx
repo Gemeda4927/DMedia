@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { subscriptionApi } from '@/lib/api';
 import { useAuthStore } from '@/lib/store';
+import { useNotifications } from '@/lib/notifications';
 import { FiCheck } from 'react-icons/fi';
 
 interface Plan {
@@ -14,6 +15,7 @@ interface Plan {
 
 export default function SubscriptionsPage() {
   const user = useAuthStore((state) => state.user);
+  const { showSuccess, showError } = useNotifications();
   const [plans, setPlans] = useState<Record<string, Plan>>({});
   const [loading, setLoading] = useState(true);
 
@@ -35,10 +37,12 @@ export default function SubscriptionsPage() {
   const handleSubscribe = async (tier: string) => {
     try {
       await subscriptionApi.create({ tier, billingCycle: 'monthly' });
-      alert('Subscription created successfully!');
-      window.location.reload();
+      showSuccess('Subscription created successfully!', 'Success');
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
     } catch (error: any) {
-      alert(error.response?.data?.message || 'Subscription failed');
+      showError(error.response?.data?.message || 'Subscription failed', 'Error');
     }
   };
 

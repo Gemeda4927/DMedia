@@ -101,8 +101,11 @@ router.get('/me', async (req, res) => {
       return res.status(401).json({ message: 'Authentication required' });
     }
 
-    const jwt = require('jsonwebtoken');
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    const { verifyToken } = await import('../utils/jwt.js');
+    const decoded = verifyToken(token);
+    if (!decoded) {
+      return res.status(401).json({ message: 'Invalid token' });
+    }
     const user = await User.findById(decoded.userId);
 
     if (!user) {
