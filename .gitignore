@@ -49,3 +49,9 @@ backend/temp/
 .parcel-cache/
 *.tsbuildinfo
 
+# Temporary scripts and files
+*.sh
+fix*.py
+*secrets*.txt
+.git-rewrite-*
+
