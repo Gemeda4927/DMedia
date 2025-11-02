@@ -28,8 +28,8 @@ npm run dev
 ```
 
 This will start:
-- Frontend: http://localhost:3000
-- Backend API: http://localhost:5000
+- Frontend: http://localhost:3000 (or 3001 if 3000 is in use)
+- Backend API: http://localhost:4000
 
 ## 📁 Project Structure
 
@@ -60,7 +60,9 @@ This will start:
 
 ## 📚 Documentation
 
-See `SYSTEM_DOCUMENTATION.md` for complete system documentation.
+- **System Documentation**: See `SYSTEM_DOCUMENTATION.md` for complete system architecture
+- **Deployment Guide**: See `DEPLOYMENT_COMPLETE.md` for deployment instructions
+- **Setup Guide**: See `SETUP.md` for initial setup steps
 
 ## 📝 License
 

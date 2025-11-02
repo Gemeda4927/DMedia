@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { 
@@ -11,11 +12,38 @@ import {
   FiShield,
   FiGlobe,
   FiStar,
-  FiChevronRight
+  FiChevronRight,
+  FiArrowRight,
+  FiClock,
+  FiEye,
+  FiCalendar
 } from 'react-icons/fi'
 import Navbar from '@/components/Navbar'
+import { newsApi } from '@/lib/api'
 
 export default function Home() {
+  const [featuredNews, setFeaturedNews] = useState<any[]>([]);
+  const [breakingNews, setBreakingNews] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchNews();
+  }, []);
+
+  const fetchNews = async () => {
+    try {
+      const [featuredRes, breakingRes] = await Promise.all([
+        newsApi.getAll({ featured: 'true', limit: 6 }),
+        newsApi.getAll({ breaking: 'true', limit: 3 })
+      ]);
+      setFeaturedNews(featuredRes.data?.news || []);
+      setBreakingNews(breakingRes.data?.news || []);
+    } catch (error) {
+      console.error('Error fetching news:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -173,6 +201,155 @@ export default function Home() {
           </motion.div>
         </div>
       </section>
+
+      {/* Breaking News Banner */}
+      {breakingNews.length > 0 && (
+        <section className="relative py-4 bg-gradient-to-r from-red-600 via-red-700 to-red-600 overflow-hidden">
+          <div className="absolute inset-0 bg-[linear-gradient(90deg,transparent_0%,rgba(255,255,255,0.1)_50%,transparent_100%)] animate-shimmer" />
+          <div className="container mx-auto px-4 relative z-10">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 bg-white/20 backdrop-blur-sm px-4 py-2 rounded-lg shrink-0">
+                <span className="animate-pulse text-white font-bold text-sm flex items-center gap-1">
+                  <span>🔥</span> BREAKING
+                </span>
+              </div>
+              <div className="flex-1 overflow-hidden">
+                <div className="flex gap-8">
+                  {breakingNews.slice(0, 1).map((news: any) => (
+                    <Link
+                      key={news._id}
+                      href={`/news/${news.slug}`}
+                      className="flex items-center gap-4 text-white hover:text-yellow-200 transition-colors"
+                    >
+                      <span className="font-semibold text-sm md:text-base truncate">
+                        {news.title}
+                      </span>
+                      <span className="text-xs opacity-75 shrink-0">
+                        {new Date(news.publishedAt || news.createdAt).toLocaleDateString()}
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+              <Link
+                href="/news?breaking=true"
+                className="text-white hover:text-yellow-200 transition-colors whitespace-nowrap text-sm font-medium flex items-center gap-1 shrink-0"
+              >
+                View All <FiArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Featured News Section */}
+      {featuredNews.length > 0 && (
+        <section className="container mx-auto px-4 py-20 relative z-10">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="mb-12"
+          >
+            <div className="flex items-center justify-between mb-8">
+              <div>
+                <h2 className="text-4xl md:text-5xl font-bold mb-4">
+                  <span className="bg-gradient-to-r from-primary-400 to-primary-600 bg-clip-text text-transparent">
+                    Featured News
+                  </span>
+                </h2>
+                <p className="text-xl text-gray-400">
+                  Stay informed with the latest stories and updates
+                </p>
+              </div>
+              <Link
+                href="/news"
+                className="hidden md:flex items-center gap-2 px-6 py-3 bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors"
+              >
+                View All News
+                <FiArrowRight className="w-5 h-5" />
+              </Link>
+            </div>
+
+            {loading ? (
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {[...Array(6)].map((_, i) => (
+                  <div key={i} className="bg-gray-800/50 rounded-xl animate-pulse h-96" />
+                ))}
+              </div>
+            ) : (
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {featuredNews.slice(0, 6).map((item: any, index) => (
+                  <motion.div
+                    key={item._id}
+                    initial={{ opacity: 0, y: 30 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ duration: 0.5, delay: index * 0.1 }}
+                    whileHover={{ y: -8, scale: 1.02 }}
+                  >
+                    <Link
+                      href={`/news/${item.slug}`}
+                      className="group block bg-gradient-to-br from-gray-800/50 to-gray-900/50 backdrop-blur-sm border border-gray-700/50 rounded-2xl overflow-hidden hover:border-primary-500/50 transition-all"
+                    >
+                      <div className="relative aspect-video overflow-hidden">
+                        <img
+                          src={item.featuredImage || 'https://via.placeholder.com/800x450'}
+                          alt={item.title}
+                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.src = 'https://via.placeholder.com/800x450';
+                          }}
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                        {item.isBreaking && (
+                          <span className="absolute top-3 left-3 bg-red-600 text-white px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
+                            <span className="w-2 h-2 bg-white rounded-full animate-pulse" />
+                            Breaking
+                          </span>
+                        )}
+                        {item.isFeatured && (
+                          <span className="absolute top-3 right-3 bg-primary-600 text-white px-3 py-1 rounded-full text-xs font-semibold">
+                            ⭐ Featured
+                          </span>
+                        )}
+                        <div className="absolute bottom-3 left-3 right-3">
+                          <span className="inline-block bg-primary-600/90 backdrop-blur-sm text-white px-3 py-1 rounded-lg text-xs font-medium uppercase">
+                            {item.category}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="p-6">
+                        <h3 className="font-bold text-xl mb-3 line-clamp-2 group-hover:text-primary-400 transition-colors">
+                          {item.title}
+                        </h3>
+                        <p className="text-gray-400 text-sm line-clamp-3 mb-4">
+                          {item.excerpt}
+                        </p>
+                        <div className="flex items-center justify-between text-xs text-gray-500">
+                          <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-1">
+                              <FiCalendar className="w-3 h-3" />
+                              <span>{new Date(item.publishedAt || item.createdAt).toLocaleDateString()}</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <FiEye className="w-3 h-3" />
+                              <span>{item.views || 0} views</span>
+                            </div>
+                          </div>
+                          <FiArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                        </div>
+                      </div>
+                    </Link>
+                  </motion.div>
+                ))}
+              </div>
+            )}
+          </motion.div>
+        </section>
+      )}
 
       {/* Features Section */}
       <section className="container mx-auto px-4 py-20 relative z-10">

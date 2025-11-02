@@ -19,15 +19,21 @@ router.get('/dashboard', async (req, res) => {
       activeSubscriptions,
       totalContent,
       totalNews,
+      pendingContent,
+      pendingNews,
       recentUsers,
-      recentContent
+      recentContent,
+      recentNews
     ] = await Promise.all([
       User.countDocuments(),
       Subscription.countDocuments({ status: 'active' }),
       Content.countDocuments({ isPublished: true }),
       News.countDocuments({ status: 'published' }),
+      Content.countDocuments({ status: 'review' }),
+      News.countDocuments({ status: 'review' }),
       User.find().sort({ createdAt: -1 }).limit(5).select('name email createdAt'),
-      Content.find().sort({ createdAt: -1 }).limit(5).select('title type createdAt')
+      Content.find().sort({ createdAt: -1 }).limit(5).select('title type createdAt'),
+      News.find().sort({ createdAt: -1 }).limit(5).select('title category createdAt status').populate('author', 'name')
     ]);
 
     res.json({
@@ -35,10 +41,13 @@ router.get('/dashboard', async (req, res) => {
         totalUsers,
         activeSubscriptions,
         totalContent,
-        totalNews
+        totalNews,
+        pendingContent,
+        pendingNews
       },
       recentUsers,
-      recentContent
+      recentContent,
+      recentNews
     });
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
@@ -226,6 +235,189 @@ router.post('/content/:id/reject', async (req, res) => {
     });
   } catch (error) {
     console.error('Reject content error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// News management endpoints
+router.get('/news', async (req, res) => {
+  try {
+    const { status, category, page = 1, limit = 20, search } = req.query;
+    const query = {};
+
+    if (status) query.status = status;
+    if (category) query.category = category;
+    if (search) {
+      query.$or = [
+        { title: { $regex: search, $options: 'i' } },
+        { excerpt: { $regex: search, $options: 'i' } },
+        { content: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    const skip = (page - 1) * limit;
+    const news = await News.find(query)
+      .populate('author', 'name email')
+      .skip(skip)
+      .limit(parseInt(limit))
+      .sort({ createdAt: -1 });
+
+    const total = await News.countDocuments(query);
+
+    res.json({
+      news,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    });
+  } catch (error) {
+    console.error('Get news error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Get single news article
+router.get('/news/:id', async (req, res) => {
+  try {
+    const news = await News.findById(req.params.id)
+      .populate('author', 'name email');
+
+    if (!news) {
+      return res.status(404).json({ message: 'News article not found' });
+    }
+
+    res.json({ news });
+  } catch (error) {
+    console.error('Get news error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Approve news article
+router.post('/news/:id/approve', async (req, res) => {
+  try {
+    const news = await News.findByIdAndUpdate(
+      req.params.id,
+      { 
+        status: 'approved', 
+        publishedAt: new Date() 
+      },
+      { new: true }
+    ).populate('author', 'name email');
+
+    if (!news) {
+      return res.status(404).json({ message: 'News article not found' });
+    }
+
+    res.json({
+      message: 'News article approved successfully',
+      news
+    });
+  } catch (error) {
+    console.error('Approve news error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Reject news article
+router.post('/news/:id/reject', async (req, res) => {
+  try {
+    const { reason } = req.body;
+    const news = await News.findByIdAndUpdate(
+      req.params.id,
+      { 
+        status: 'rejected', 
+        rejectionReason: reason 
+      },
+      { new: true }
+    ).populate('author', 'name email');
+
+    if (!news) {
+      return res.status(404).json({ message: 'News article not found' });
+    }
+
+    res.json({
+      message: 'News article rejected successfully',
+      news
+    });
+  } catch (error) {
+    console.error('Reject news error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Publish news article (set status to published)
+router.post('/news/:id/publish', async (req, res) => {
+  try {
+    const news = await News.findByIdAndUpdate(
+      req.params.id,
+      { 
+        status: 'published', 
+        publishedAt: new Date() 
+      },
+      { new: true }
+    ).populate('author', 'name email');
+
+    if (!news) {
+      return res.status(404).json({ message: 'News article not found' });
+    }
+
+    res.json({
+      message: 'News article published successfully',
+      news
+    });
+  } catch (error) {
+    console.error('Publish news error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Update news article
+router.put('/news/:id', async (req, res) => {
+  try {
+    const news = await News.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true, runValidators: true }
+    ).populate('author', 'name email');
+
+    if (!news) {
+      return res.status(404).json({ message: 'News article not found' });
+    }
+
+    res.json({
+      message: 'News article updated successfully',
+      news
+    });
+  } catch (error) {
+    console.error('Update news error:', error);
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({
+        message: 'Validation error',
+        errors: Object.values(error.errors).map(e => e.message)
+      });
+    }
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Delete news article
+router.delete('/news/:id', async (req, res) => {
+  try {
+    const news = await News.findByIdAndDelete(req.params.id);
+
+    if (!news) {
+      return res.status(404).json({ message: 'News article not found' });
+    }
+
+    res.json({
+      message: 'News article deleted successfully'
+    });
+  } catch (error) {
+    console.error('Delete news error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });

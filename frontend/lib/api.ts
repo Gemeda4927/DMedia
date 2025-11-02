@@ -152,6 +152,14 @@ export const adminApi = {
   getContent: (params?: any) => api.get('/admin/content', { params }),
   approveContent: (id: string) => api.post(`/admin/content/${id}/approve`),
   rejectContent: (id: string, reason?: string) => api.post(`/admin/content/${id}/reject`, { reason }),
+  // News management
+  getNews: (params?: any) => api.get('/admin/news', { params }),
+  getNewsById: (id: string) => api.get(`/admin/news/${id}`),
+  approveNews: (id: string) => api.post(`/admin/news/${id}/approve`),
+  rejectNews: (id: string, reason?: string) => api.post(`/admin/news/${id}/reject`, { reason }),
+  publishNews: (id: string) => api.post(`/admin/news/${id}/publish`),
+  updateNews: (id: string, data: any) => api.put(`/admin/news/${id}`, data),
+  deleteNews: (id: string) => api.delete(`/admin/news/${id}`),
 };
 
 export const notificationApi = {

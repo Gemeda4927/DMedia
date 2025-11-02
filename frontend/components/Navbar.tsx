@@ -21,6 +21,14 @@ import {
   FiClock,
   FiStar,
   FiShield,
+  FiEdit,
+  FiFileText,
+  FiGrid,
+  FiBarChart2,
+  FiHelpCircle,
+  FiMail,
+  FiLock,
+  FiTrendingUp,
 } from 'react-icons/fi';
 import { useAuthStore } from '@/lib/store';
 import { notificationApi, contentApi, newsApi } from '@/lib/api';
@@ -138,8 +146,9 @@ export default function Navbar() {
 
   const handleLogout = () => {
     logout();
-    router.push('/');
     setUserMenuOpen(false);
+    setMobileMenuOpen(false);
+    router.replace('/');
   };
 
   const navLinks = [
@@ -149,17 +158,52 @@ export default function Navbar() {
     { href: '/subscriptions', label: 'Subscriptions', icon: FiCreditCard },
   ];
 
-  const userMenuItems = [
-    { href: '/dashboard', label: 'Dashboard', icon: FiUser },
-    { href: '/dashboard/bookmarks', label: 'My Bookmarks', icon: FiHeart },
-    { href: '/dashboard/history', label: 'Watch History', icon: FiClock },
-    { href: '/subscriptions', label: 'Subscription', icon: FiStar },
-    { href: '/dashboard/settings', label: 'Settings', icon: FiSettings },
+  // Base user menu items for all users
+  const baseUserMenuItems = [
+    { href: '/dashboard', label: 'My Dashboard', icon: FiGrid, section: 'main' },
+    { href: '/dashboard/history', label: 'Watch History', icon: FiClock, section: 'content' },
+    { href: '/dashboard/bookmarks', label: 'My Bookmarks', icon: FiHeart, section: 'content' },
   ];
 
-  if (user?.role === 'admin') {
-    userMenuItems.push({ href: '/admin', label: 'Admin Panel', icon: FiShield });
-  }
+  // Creator-specific items
+  const creatorMenuItems = [
+    { href: '/dashboard/content/create', label: 'Create Content', icon: FiEdit, section: 'create' },
+    { href: '/dashboard/content', label: 'My Content', icon: FiVideo, section: 'create' },
+    { href: '/dashboard/news/create', label: 'Create News', icon: FiFileText, section: 'create' },
+  ];
+
+  // Admin-specific items
+  const adminMenuItems = [
+    { href: '/admin', label: 'Admin Panel', icon: FiShield, section: 'admin' },
+    { href: '/admin/users', label: 'Manage Users', icon: FiUser, section: 'admin' },
+    { href: '/admin/content', label: 'Manage Content', icon: FiVideo, section: 'admin' },
+  ];
+
+  // Settings and account items
+  const accountMenuItems = [
+    { href: '/subscriptions', label: 'Subscription Plans', icon: FiStar, section: 'account' },
+    { href: '/dashboard/settings', label: 'Account Settings', icon: FiSettings, section: 'account' },
+    { href: '/dashboard/profile', label: 'Edit Profile', icon: FiUser, section: 'account' },
+  ];
+
+  // Build complete menu based on user role
+  const getUserMenuItems = () => {
+    const items = [...baseUserMenuItems];
+    
+    if (user?.role === 'creator' || user?.role === 'admin') {
+      items.push(...creatorMenuItems);
+    }
+    
+    if (user?.role === 'admin') {
+      items.push(...adminMenuItems);
+    }
+    
+    items.push(...accountMenuItems);
+    
+    return items;
+  };
+
+  const userMenuItems = getUserMenuItems();
 
   return (
     <header className="sticky top-0 z-50 bg-gray-900/95 backdrop-blur-xl border-b border-gray-800/50 shadow-lg">
@@ -375,32 +419,166 @@ export default function Navbar() {
                       initial={{ opacity: 0, y: -10, scale: 0.95 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                      className="absolute right-0 top-full mt-2 w-56 bg-gray-800 rounded-xl shadow-2xl border border-gray-700 overflow-hidden"
+                      className="absolute right-0 top-full mt-2 w-72 bg-gray-800 rounded-xl shadow-2xl border border-gray-700 overflow-hidden z-50"
                     >
-                      <div className="p-4 border-b border-gray-700">
-                        <p className="text-white font-semibold">{user?.name}</p>
-                        <p className="text-gray-400 text-sm truncate">{user?.email}</p>
-                        {user?.subscriptionTier && (
-                          <span className="inline-block mt-2 px-2 py-1 bg-primary-600/20 text-primary-400 text-xs rounded capitalize">
-                            {user.subscriptionTier}
-                          </span>
+                      {/* User Info Header */}
+                      <div className="p-4 border-b border-gray-700 bg-gradient-to-r from-gray-800 to-gray-750">
+                        <div className="flex items-center gap-3 mb-2">
+                          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center text-white font-bold text-lg">
+                            {user?.name?.charAt(0).toUpperCase() || 'U'}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-white font-semibold truncate">{user?.name || 'User'}</p>
+                            <p className="text-gray-400 text-xs truncate">{user?.email}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 mt-2">
+                          {user?.role && (
+                            <span className="px-2 py-1 bg-primary-600/20 text-primary-400 text-xs rounded capitalize font-medium">
+                              {user.role}
+                            </span>
+                          )}
+                          {user?.subscriptionTier && (
+                            <span className="px-2 py-1 bg-purple-600/20 text-purple-400 text-xs rounded capitalize font-medium">
+                              {user.subscriptionTier}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Menu Items with Sections */}
+                      <div className="max-h-96 overflow-y-auto">
+                        {/* Main Section */}
+                        {userMenuItems.filter(item => item.section === 'main').length > 0 && (
+                          <div className="py-2">
+                            {userMenuItems
+                              .filter(item => item.section === 'main')
+                              .map((item) => (
+                                <Link
+                                  key={item.href}
+                                  href={item.href}
+                                  onClick={() => setUserMenuOpen(false)}
+                                  className={`flex items-center gap-3 px-4 py-2.5 text-gray-300 hover:text-white hover:bg-gray-700/50 transition-colors ${
+                                    pathname === item.href ? 'bg-primary-600/20 text-primary-400' : ''
+                                  }`}
+                                >
+                                  <item.icon className="w-5 h-5" />
+                                  <span className="text-sm font-medium">{item.label}</span>
+                                </Link>
+                              ))}
+                          </div>
+                        )}
+
+                        {/* Content Section */}
+                        {userMenuItems.filter(item => item.section === 'content').length > 0 && (
+                          <>
+                            <div className="px-4 py-2 border-t border-gray-700">
+                              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Content</p>
+                            </div>
+                            <div className="py-2">
+                              {userMenuItems
+                                .filter(item => item.section === 'content')
+                                .map((item) => (
+                                  <Link
+                                    key={item.href}
+                                    href={item.href}
+                                    onClick={() => setUserMenuOpen(false)}
+                                    className={`flex items-center gap-3 px-4 py-2.5 text-gray-300 hover:text-white hover:bg-gray-700/50 transition-colors ${
+                                      pathname === item.href ? 'bg-primary-600/20 text-primary-400' : ''
+                                    }`}
+                                  >
+                                    <item.icon className="w-5 h-5" />
+                                    <span className="text-sm">{item.label}</span>
+                                  </Link>
+                                ))}
+                            </div>
+                          </>
+                        )}
+
+                        {/* Create Section (Creators/Admins) */}
+                        {userMenuItems.filter(item => item.section === 'create').length > 0 && (
+                          <>
+                            <div className="px-4 py-2 border-t border-gray-700">
+                              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Create</p>
+                            </div>
+                            <div className="py-2">
+                              {userMenuItems
+                                .filter(item => item.section === 'create')
+                                .map((item) => (
+                                  <Link
+                                    key={item.href}
+                                    href={item.href}
+                                    onClick={() => setUserMenuOpen(false)}
+                                    className={`flex items-center gap-3 px-4 py-2.5 text-gray-300 hover:text-white hover:bg-gray-700/50 transition-colors ${
+                                      pathname === item.href ? 'bg-primary-600/20 text-primary-400' : ''
+                                    }`}
+                                  >
+                                    <item.icon className="w-5 h-5" />
+                                    <span className="text-sm">{item.label}</span>
+                                  </Link>
+                                ))}
+                            </div>
+                          </>
+                        )}
+
+                        {/* Admin Section */}
+                        {userMenuItems.filter(item => item.section === 'admin').length > 0 && (
+                          <>
+                            <div className="px-4 py-2 border-t border-gray-700">
+                              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Administration</p>
+                            </div>
+                            <div className="py-2">
+                              {userMenuItems
+                                .filter(item => item.section === 'admin')
+                                .map((item) => (
+                                  <Link
+                                    key={item.href}
+                                    href={item.href}
+                                    onClick={() => setUserMenuOpen(false)}
+                                    className={`flex items-center gap-3 px-4 py-2.5 text-gray-300 hover:text-white hover:bg-gray-700/50 transition-colors ${
+                                      pathname === item.href ? 'bg-primary-600/20 text-primary-400' : ''
+                                    }`}
+                                  >
+                                    <item.icon className="w-5 h-5" />
+                                    <span className="text-sm">{item.label}</span>
+                                  </Link>
+                                ))}
+                            </div>
+                          </>
+                        )}
+
+                        {/* Account Section */}
+                        {userMenuItems.filter(item => item.section === 'account').length > 0 && (
+                          <>
+                            <div className="px-4 py-2 border-t border-gray-700">
+                              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Account</p>
+                            </div>
+                            <div className="py-2">
+                              {userMenuItems
+                                .filter(item => item.section === 'account')
+                                .map((item) => (
+                                  <Link
+                                    key={item.href}
+                                    href={item.href}
+                                    onClick={() => setUserMenuOpen(false)}
+                                    className={`flex items-center gap-3 px-4 py-2.5 text-gray-300 hover:text-white hover:bg-gray-700/50 transition-colors ${
+                                      pathname === item.href ? 'bg-primary-600/20 text-primary-400' : ''
+                                    }`}
+                                  >
+                                    <item.icon className="w-5 h-5" />
+                                    <span className="text-sm">{item.label}</span>
+                                  </Link>
+                                ))}
+                            </div>
+                          </>
                         )}
                       </div>
-                      <div className="py-2">
-                        {userMenuItems.map((item) => (
-                          <Link
-                            key={item.href}
-                            href={item.href}
-                            onClick={() => setUserMenuOpen(false)}
-                            className="flex items-center gap-3 px-4 py-2 text-gray-300 hover:text-white hover:bg-gray-700/50 transition-colors"
-                          >
-                            <item.icon className="w-5 h-5" />
-                            <span>{item.label}</span>
-                          </Link>
-                        ))}
+
+                      {/* Logout Button */}
+                      <div className="border-t border-gray-700 p-2">
                         <button
                           onClick={handleLogout}
-                          className="w-full flex items-center gap-3 px-4 py-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors"
+                          className="w-full flex items-center gap-3 px-4 py-2.5 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors font-medium"
                         >
                           <FiLogOut className="w-5 h-5" />
                           <span>Logout</span>
@@ -467,29 +645,153 @@ export default function Navbar() {
                 </>
               )}
               {isAuthenticated && (
-                <div className="pt-4 border-t border-gray-800">
-                  {userMenuItems.map((item) => (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="flex items-center gap-3 px-4 py-3 rounded-lg text-gray-300 hover:text-primary-400 hover:bg-gray-800/50 transition-colors"
+                <>
+                  {/* User Info */}
+                  <div className="pt-4 border-t border-gray-800 mb-2">
+                    <div className="flex items-center gap-3 px-4 py-3">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center text-white font-bold">
+                        {user?.name?.charAt(0).toUpperCase() || 'U'}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-white font-semibold truncate">{user?.name || 'User'}</p>
+                        <p className="text-gray-400 text-xs truncate">{user?.email}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Main Section */}
+                  {userMenuItems.filter(item => item.section === 'main').length > 0 && (
+                    <div className="py-2">
+                      {userMenuItems
+                        .filter(item => item.section === 'main')
+                        .map((item) => (
+                          <Link
+                            key={item.href}
+                            href={item.href}
+                            onClick={() => setMobileMenuOpen(false)}
+                            className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                              pathname === item.href
+                                ? 'bg-primary-600/20 text-primary-400'
+                                : 'text-gray-300 hover:text-primary-400 hover:bg-gray-800/50'
+                            }`}
+                          >
+                            <item.icon className="w-5 h-5" />
+                            <span>{item.label}</span>
+                          </Link>
+                        ))}
+                    </div>
+                  )}
+
+                  {/* Content Section */}
+                  {userMenuItems.filter(item => item.section === 'content').length > 0 && (
+                    <div className="py-2 border-t border-gray-800">
+                      <p className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase">Content</p>
+                      {userMenuItems
+                        .filter(item => item.section === 'content')
+                        .map((item) => (
+                          <Link
+                            key={item.href}
+                            href={item.href}
+                            onClick={() => setMobileMenuOpen(false)}
+                            className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                              pathname === item.href
+                                ? 'bg-primary-600/20 text-primary-400'
+                                : 'text-gray-300 hover:text-primary-400 hover:bg-gray-800/50'
+                            }`}
+                          >
+                            <item.icon className="w-5 h-5" />
+                            <span>{item.label}</span>
+                          </Link>
+                        ))}
+                    </div>
+                  )}
+
+                  {/* Create Section */}
+                  {userMenuItems.filter(item => item.section === 'create').length > 0 && (
+                    <div className="py-2 border-t border-gray-800">
+                      <p className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase">Create</p>
+                      {userMenuItems
+                        .filter(item => item.section === 'create')
+                        .map((item) => (
+                          <Link
+                            key={item.href}
+                            href={item.href}
+                            onClick={() => setMobileMenuOpen(false)}
+                            className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                              pathname === item.href
+                                ? 'bg-primary-600/20 text-primary-400'
+                                : 'text-gray-300 hover:text-primary-400 hover:bg-gray-800/50'
+                            }`}
+                          >
+                            <item.icon className="w-5 h-5" />
+                            <span>{item.label}</span>
+                          </Link>
+                        ))}
+                    </div>
+                  )}
+
+                  {/* Admin Section */}
+                  {userMenuItems.filter(item => item.section === 'admin').length > 0 && (
+                    <div className="py-2 border-t border-gray-800">
+                      <p className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase">Administration</p>
+                      {userMenuItems
+                        .filter(item => item.section === 'admin')
+                        .map((item) => (
+                          <Link
+                            key={item.href}
+                            href={item.href}
+                            onClick={() => setMobileMenuOpen(false)}
+                            className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                              pathname === item.href
+                                ? 'bg-primary-600/20 text-primary-400'
+                                : 'text-gray-300 hover:text-primary-400 hover:bg-gray-800/50'
+                            }`}
+                          >
+                            <item.icon className="w-5 h-5" />
+                            <span>{item.label}</span>
+                          </Link>
+                        ))}
+                    </div>
+                  )}
+
+                  {/* Account Section */}
+                  {userMenuItems.filter(item => item.section === 'account').length > 0 && (
+                    <div className="py-2 border-t border-gray-800">
+                      <p className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase">Account</p>
+                      {userMenuItems
+                        .filter(item => item.section === 'account')
+                        .map((item) => (
+                          <Link
+                            key={item.href}
+                            href={item.href}
+                            onClick={() => setMobileMenuOpen(false)}
+                            className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                              pathname === item.href
+                                ? 'bg-primary-600/20 text-primary-400'
+                                : 'text-gray-300 hover:text-primary-400 hover:bg-gray-800/50'
+                            }`}
+                          >
+                            <item.icon className="w-5 h-5" />
+                            <span>{item.label}</span>
+                          </Link>
+                        ))}
+                    </div>
+                  )}
+
+                  {/* Logout Button */}
+                  <div className="pt-2 border-t border-gray-800">
+                    <button
+                      onClick={() => {
+                        handleLogout();
+                        setMobileMenuOpen(false);
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors"
                     >
-                      <item.icon className="w-5 h-5" />
-                      <span>{item.label}</span>
-                    </Link>
-                  ))}
-                  <button
-                    onClick={() => {
-                      handleLogout();
-                      setMobileMenuOpen(false);
-                    }}
-                    className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors"
-                  >
-                    <FiLogOut className="w-5 h-5" />
-                    <span>Logout</span>
-                  </button>
-                </div>
+                      <FiLogOut className="w-5 h-5" />
+                      <span>Logout</span>
+                    </button>
+                  </div>
+                </>
               )}
             </motion.div>
           )}
