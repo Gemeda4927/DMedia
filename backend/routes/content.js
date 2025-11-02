@@ -1,5 +1,6 @@
 import express from 'express';
-import { authenticate, checkSubscription } from '../middleware/auth.js';
+import { authenticate, checkSubscription, authorize } from '../middleware/auth.js';
+import { validateContent, validateContentId } from '../middleware/validation.js';
 import Content from '../models/Content.js';
 import Episode from '../models/Episode.js';
 
@@ -84,23 +85,53 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Get single content
-router.get('/:id', async (req, res) => {
+// Get single content (public or own content for creators)
+router.get('/:id', validateContentId, async (req, res) => {
   try {
     const content = await Content.findById(req.params.id)
-      .populate('createdBy', 'name')
+      .populate('createdBy', 'name email')
       .populate('relatedContent', 'title thumbnail');
 
-    if (!content || !content.isPublished) {
+    if (!content) {
       return res.status(404).json({ message: 'Content not found' });
     }
 
-    // Increment views
-    content.views += 1;
-    await content.save();
+    // Check if user can view (published or owner/admin)
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    let canView = content.isPublished;
+
+    if (token) {
+      try {
+        const jwt = await import('jsonwebtoken');
+        const { JWT_SECRET } = await import('../utils/jwt.js');
+        const decoded = jwt.verify(token, JWT_SECRET);
+        const User = (await import('../models/User.js')).default;
+        const user = await User.findById(decoded.userId);
+        
+        if (user && (
+          user.role === 'admin' ||
+          content.createdBy.toString() === user._id.toString()
+        )) {
+          canView = true;
+        }
+      } catch (e) {
+        // Invalid token, use public access rules
+      }
+    }
+
+    if (!canView) {
+      return res.status(404).json({ message: 'Content not found' });
+    }
+
+    // Increment views for published content
+    if (content.isPublished) {
+      content.views += 1;
+      await content.save();
+    }
 
     res.json({ content });
   } catch (error) {
+    console.error('Get content error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
@@ -121,20 +152,90 @@ router.get('/:id/episodes', async (req, res) => {
 });
 
 // Create content (authenticated, creator/admin only)
-router.post('/', authenticate, async (req, res) => {
+router.post('/', authenticate, authorize('admin', 'creator'), validateContent, async (req, res) => {
   try {
-    if (!['admin', 'creator'].includes(req.user.role)) {
-      return res.status(403).json({ message: 'Access denied' });
-    }
-
     const content = new Content({
       ...req.body,
-      createdBy: req.user._id
+      createdBy: req.user._id,
+      status: req.body.status || 'draft'
     });
     await content.save();
 
-    res.status(201).json({ content });
+    res.status(201).json({
+      message: 'Content created successfully',
+      content
+    });
   } catch (error) {
+    console.error('Create content error:', error);
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({
+        message: 'Validation error',
+        errors: Object.values(error.errors).map(e => e.message)
+      });
+    }
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Update content (authenticated, creator/admin only - owner or admin)
+router.put('/:id', authenticate, authorize('admin', 'creator'), validateContentId, validateContent, async (req, res) => {
+  try {
+    const content = await Content.findById(req.params.id);
+
+    if (!content) {
+      return res.status(404).json({ message: 'Content not found' });
+    }
+
+    // Check ownership or admin
+    if (content.createdBy.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Access denied. You can only edit your own content.' });
+    }
+
+    // Update fields
+    Object.assign(content, req.body);
+    await content.save();
+
+    res.json({
+      message: 'Content updated successfully',
+      content
+    });
+  } catch (error) {
+    console.error('Update content error:', error);
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({
+        message: 'Validation error',
+        errors: Object.values(error.errors).map(e => e.message)
+      });
+    }
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Delete content (authenticated, creator/admin only - owner or admin)
+router.delete('/:id', authenticate, authorize('admin', 'creator'), validateContentId, async (req, res) => {
+  try {
+    const content = await Content.findById(req.params.id);
+
+    if (!content) {
+      return res.status(404).json({ message: 'Content not found' });
+    }
+
+    // Check ownership or admin
+    if (content.createdBy.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Access denied. You can only delete your own content.' });
+    }
+
+    // Delete related episodes
+    await Episode.deleteMany({ showId: req.params.id });
+
+    // Delete content
+    await Content.findByIdAndDelete(req.params.id);
+
+    res.json({
+      message: 'Content deleted successfully'
+    });
+  } catch (error) {
+    console.error('Delete content error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });

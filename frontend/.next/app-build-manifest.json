@@ -40,6 +40,11 @@
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/subscriptions/page.js"
+    ],
+    "/dashboard/content/create/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/dashboard/content/create/page.js"
     ]
   }
 }

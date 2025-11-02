@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
@@ -11,40 +11,209 @@ import Navbar from '@/components/Navbar';
 
 export default function LoginPage() {
   const router = useRouter();
-  const setAuth = useAuthStore((state) => state.setAuth);
+  const { setAuth, isAuthenticated, token } = useAuthStore();
   const [formData, setFormData] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  // Log component mount and auth state
+  useEffect(() => {
+    console.log('🔵 [LOGIN] Component mounting...');
+    console.log('🔵 [LOGIN] Initial auth state:', { isAuthenticated, token: token ? '***exists***' : null });
+    
+    // Check localStorage
+    if (typeof window !== 'undefined') {
+      const storedToken = localStorage.getItem('token');
+      const storedAuth = localStorage.getItem('auth-storage');
+      console.log('🔵 [LOGIN] localStorage state:', {
+        token: storedToken ? '***exists***' : null,
+        authStorage: storedAuth ? '***exists***' : null
+      });
+    }
+    
+    setMounted(true);
+    console.log('🔵 [LOGIN] Component mounted');
+    
+    return () => {
+      console.log('🔵 [LOGIN] Component unmounting...');
+    };
+  }, []);
+  
+  // Log auth state changes
+  useEffect(() => {
+    console.log('🔵 [LOGIN] Auth state changed:', { isAuthenticated, token: token ? '***exists***' : null });
+  }, [isAuthenticated, token]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('🟢 [LOGIN] Form submitted');
+    console.log('🟢 [LOGIN] Form data:', { email: formData.email, password: '***' });
+    
     setError('');
     
     // Validation
+    console.log('🟡 [LOGIN] Starting validation...');
     if (!formData.email || !formData.password) {
+      console.log('🔴 [LOGIN] Validation failed: Missing fields');
       setError('Please fill in all fields');
       return;
     }
 
     if (!/\S+@\S+\.\S+/.test(formData.email)) {
+      console.log('🔴 [LOGIN] Validation failed: Invalid email format');
       setError('Please enter a valid email address');
       return;
     }
 
+    console.log('✅ [LOGIN] Validation passed');
+    console.log('🟡 [LOGIN] Setting loading state...');
     setLoading(true);
 
     try {
+      console.log('🟡 [LOGIN] Making API call to /auth/login...');
+      console.log('🟡 [LOGIN] Request payload:', { email: formData.email, password: '***' });
+      
       const response = await authApi.login(formData);
-      setAuth(response.data.user, response.data.token);
-      router.push('/dashboard');
+      console.log('✅ [LOGIN] API call successful');
+      console.log('✅ [LOGIN] Response data:', {
+        hasUser: !!response.data.user,
+        hasToken: !!response.data.token,
+        userRole: response.data.user?.role,
+        userId: response.data.user?.id,
+        userName: response.data.user?.name
+      });
+      
+      if (response.data.user && response.data.token) {
+        console.log('🟡 [LOGIN] Setting auth state in Zustand store...');
+        
+        // Check state before setting
+        console.log('🟡 [LOGIN] Auth state BEFORE setAuth:', {
+          isAuthenticated,
+          token: token ? '***exists***' : null,
+          user: useAuthStore.getState().user
+        });
+        
+        // Set auth state
+        setAuth(response.data.user, response.data.token);
+        
+        // Check state immediately after setting
+        const stateAfterSet = useAuthStore.getState();
+        console.log('🟡 [LOGIN] Auth state AFTER setAuth:', {
+          isAuthenticated: stateAfterSet.isAuthenticated,
+          token: stateAfterSet.token ? '***exists***' : null,
+          user: stateAfterSet.user
+        });
+        
+        // Check localStorage after setting
+        if (typeof window !== 'undefined') {
+          const tokenAfterSet = localStorage.getItem('token');
+          const authStorageAfterSet = localStorage.getItem('auth-storage');
+          console.log('🟡 [LOGIN] localStorage AFTER setAuth:', {
+            token: tokenAfterSet ? '***exists***' : null,
+            authStorage: authStorageAfterSet ? '***exists***' : null
+          });
+        }
+        
+        console.log('🟡 [LOGIN] Waiting 500ms for state persistence...');
+        // Wait longer for state to persist and update
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Check state after waiting
+        const stateAfterWait = useAuthStore.getState();
+        console.log('🟡 [LOGIN] Auth state AFTER wait:', {
+          isAuthenticated: stateAfterWait.isAuthenticated,
+          token: stateAfterWait.token ? '***exists***' : null,
+          user: stateAfterWait.user
+        });
+        
+        if (typeof window !== 'undefined') {
+          const tokenAfterWait = localStorage.getItem('token');
+          const authStorageAfterWait = localStorage.getItem('auth-storage');
+          console.log('🟡 [LOGIN] localStorage AFTER wait:', {
+            token: tokenAfterWait ? '***exists***' : null,
+            authStorage: authStorageAfterWait ? '***exists***' : null
+          });
+          
+          // Verify token is actually stored
+          if (!tokenAfterWait) {
+            console.error('🔴 [LOGIN] CRITICAL: Token not found in localStorage after wait!');
+            setError('Failed to save authentication. Please try again.');
+            setLoading(false);
+            return;
+          }
+          
+          // Verify auth storage contains user
+          if (authStorageAfterWait) {
+            try {
+              const parsed = JSON.parse(authStorageAfterWait);
+              if (!parsed.state?.user || !parsed.state?.token) {
+                console.error('🔴 [LOGIN] CRITICAL: User or token missing from auth-storage!');
+                setError('Failed to save authentication. Please try again.');
+                setLoading(false);
+                return;
+              }
+            } catch (e) {
+              console.error('🔴 [LOGIN] CRITICAL: Failed to parse auth-storage!', e);
+            }
+          }
+        }
+        
+        // Redirect based on user role
+        const userRole = response.data.user?.role;
+        let redirectPath = '/dashboard';
+        
+        if (userRole === 'admin') {
+          redirectPath = '/admin';
+        } else if (userRole === 'creator' || userRole === 'subscriber' || userRole === 'viewer') {
+          redirectPath = '/dashboard';
+        }
+        
+        console.log('🟢 [LOGIN] Determining redirect path...');
+        console.log('🟢 [LOGIN] User role:', userRole);
+        console.log('🟢 [LOGIN] Redirect path:', redirectPath);
+        
+        // Use window.location for a full page navigation to ensure clean state
+        console.log('🟢 [LOGIN] Redirecting to:', redirectPath);
+        window.location.href = redirectPath;
+      } else {
+        console.log('🔴 [LOGIN] Invalid response: Missing user or token');
+        console.log('🔴 [LOGIN] Response:', response.data);
+        setError('Invalid response from server');
+        setLoading(false);
+      }
     } catch (err: any) {
-      setError(err.response?.data?.message || err.response?.data?.errors?.[0]?.msg || 'Login failed. Please check your credentials.');
-    } finally {
+      console.log('🔴 [LOGIN] API call failed');
+      console.log('🔴 [LOGIN] Error details:', {
+        message: err.message,
+        status: err.response?.status,
+        statusText: err.response?.statusText,
+        data: err.response?.data,
+        config: err.config ? { url: err.config.url, method: err.config.method } : null
+      });
+      
       setLoading(false);
+      // Don't show error if it's a 401 redirect (handled by interceptor)
+      if (err.response?.status !== 401) {
+        const errorMessage = err.response?.data?.message || err.response?.data?.errors?.[0]?.msg || 'Login failed. Please check your credentials.';
+        console.log('🔴 [LOGIN] Setting error message:', errorMessage);
+        setError(errorMessage);
+      } else {
+        console.log('🟡 [LOGIN] 401 error - skipping error message (handled by interceptor)');
+      }
     }
   };
+
+  // Show loading while mounting
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-900 to-gray-800 text-white flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-primary-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-900 to-gray-800 text-white">
@@ -105,6 +274,7 @@ export default function LoginPage() {
                     required
                     value={formData.email}
                     onChange={(e) => {
+                      console.log('🔵 [LOGIN] Email field changed:', e.target.value);
                       setFormData({ ...formData, email: e.target.value });
                       setError('');
                     }}
@@ -138,6 +308,7 @@ export default function LoginPage() {
                     required
                     value={formData.password}
                     onChange={(e) => {
+                      console.log('🔵 [LOGIN] Password field changed:', e.target.value.length, 'characters');
                       setFormData({ ...formData, password: e.target.value });
                       setError('');
                     }}
@@ -154,7 +325,10 @@ export default function LoginPage() {
                   />
                   <button
                     type="button"
-                    onClick={() => setShowPassword(!showPassword)}
+                    onClick={() => {
+                      console.log('🔵 [LOGIN] Toggle password visibility:', !showPassword);
+                      setShowPassword(!showPassword);
+                    }}
                     className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-500 hover:text-gray-300 transition-colors"
                   >
                     {showPassword ? <FiEyeOff className="w-5 h-5" /> : <FiEye className="w-5 h-5" />}

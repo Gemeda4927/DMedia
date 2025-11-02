@@ -101,7 +101,14 @@ const newsSchema = new mongoose.Schema({
 // Compound indexes (slug index is created automatically by unique: true)
 newsSchema.index({ category: 1, status: 1, publishedAt: -1 });
 newsSchema.index({ isBreaking: 1, isFeatured: 1 });
-newsSchema.index({ title: 'text', content: 'text', titleOromo: 'text', contentOromo: 'text' });
+// Text index with explicit language to avoid MongoDB language override error
+// 'none' language means no language-specific stemming
+// language_override points to a non-existent field to prevent MongoDB from using
+// the document's 'language' field ('om' is not supported by MongoDB text indexes)
+newsSchema.index({ title: 'text', content: 'text', titleOromo: 'text', contentOromo: 'text' }, { 
+  default_language: 'none',
+  language_override: '_no_language_field'
+});
 
 export default mongoose.model('News', newsSchema);
 

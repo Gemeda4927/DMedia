@@ -15,6 +15,7 @@ import {
   FiCheckCircle,
   FiXCircle,
   FiAlertCircle,
+  FiTrash2,
 } from 'react-icons/fi';
 import { contentApi, youtubeApi } from '@/lib/api';
 
@@ -133,6 +134,13 @@ export default function CreatorDashboard({ user }: CreatorDashboardProps) {
             Import from YouTube
           </button>
           <Link
+            href="/dashboard/news/create"
+            className="px-4 py-2 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 rounded-lg font-medium flex items-center gap-2 transition-all"
+          >
+            <FiPlus className="w-5 h-5" />
+            Create News
+          </Link>
+          <Link
             href="/dashboard/content/create"
             className="px-4 py-2 bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-500 hover:to-primary-600 rounded-lg font-medium flex items-center gap-2 transition-all"
           >
@@ -205,6 +213,21 @@ export default function CreatorDashboard({ user }: CreatorDashboardProps) {
                   >
                     View
                   </Link>
+                  <button
+                    onClick={async () => {
+                      if (confirm('Are you sure you want to delete this content?')) {
+                        try {
+                          await contentApi.delete(item._id);
+                          fetchMyContent();
+                        } catch (error) {
+                          alert('Failed to delete content');
+                        }
+                      }
+                    }}
+                    className="px-3 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-center text-sm transition-colors flex items-center justify-center gap-2"
+                  >
+                    <FiTrash2 className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
             </motion.div>

@@ -114,6 +114,75 @@ router.get('/content', async (req, res) => {
   }
 });
 
+// Get single user
+router.get('/users/:id', async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id).select('-password');
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    res.json({ user });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Update user
+router.put('/users/:id', async (req, res) => {
+  try {
+    const { role, subscriptionTier, subscriptionStatus, isActive } = req.body;
+    const updateData = {};
+    
+    if (role) updateData.role = role;
+    if (subscriptionTier) updateData.subscriptionTier = subscriptionTier;
+    if (subscriptionStatus) updateData.subscriptionStatus = subscriptionStatus;
+    if (isActive !== undefined) updateData.isActive = isActive;
+
+    const user = await User.findByIdAndUpdate(
+      req.params.id,
+      { $set: updateData },
+      { new: true, runValidators: true }
+    ).select('-password');
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    res.json({
+      message: 'User updated successfully',
+      user
+    });
+  } catch (error) {
+    console.error('Update user error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Delete user
+router.delete('/users/:id', async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Prevent deleting yourself
+    if (user._id.toString() === req.user._id.toString()) {
+      return res.status(400).json({ message: 'Cannot delete your own account' });
+    }
+
+    await User.findByIdAndDelete(req.params.id);
+
+    res.json({
+      message: 'User deleted successfully'
+    });
+  } catch (error) {
+    console.error('Delete user error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // Approve content
 router.post('/content/:id/approve', async (req, res) => {
   try {
@@ -127,8 +196,36 @@ router.post('/content/:id/approve', async (req, res) => {
       return res.status(404).json({ message: 'Content not found' });
     }
 
-    res.json({ content });
+    res.json({
+      message: 'Content approved successfully',
+      content
+    });
   } catch (error) {
+    console.error('Approve content error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Reject content
+router.post('/content/:id/reject', async (req, res) => {
+  try {
+    const { reason } = req.body;
+    const content = await Content.findByIdAndUpdate(
+      req.params.id,
+      { status: 'rejected', isPublished: false, rejectionReason: reason },
+      { new: true }
+    );
+
+    if (!content) {
+      return res.status(404).json({ message: 'Content not found' });
+    }
+
+    res.json({
+      message: 'Content rejected successfully',
+      content
+    });
+  } catch (error) {
+    console.error('Reject content error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
