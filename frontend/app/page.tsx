@@ -8,18 +8,14 @@ import {
   FiTrendingUp, 
   FiMonitor, 
   FiZap, 
-  FiUsers, 
   FiShield,
   FiGlobe,
   FiStar,
-  FiChevronRight,
-  FiMenu,
-  FiX
+  FiChevronRight
 } from 'react-icons/fi'
-import { useState } from 'react'
+import Navbar from '@/components/Navbar'
 
 export default function Home() {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -90,57 +86,8 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-900 to-gray-800 text-white overflow-x-hidden">
-      {/* Header */}
-      <header className="sticky top-0 z-50 bg-gray-900/80 backdrop-blur-lg border-b border-gray-800/50">
-        <nav className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.5 }}
-          >
-            <Link href="/" className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-primary-400 to-primary-600 bg-clip-text text-transparent">
-              Dhugaa Media
-            </Link>
-          </motion.div>
-          
-          {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center gap-8">
-            <Link href="/content" className="hover:text-primary-400 transition-colors font-medium">Content</Link>
-            <Link href="/news" className="hover:text-primary-400 transition-colors font-medium">News</Link>
-            <Link href="/subscriptions" className="hover:text-primary-400 transition-colors font-medium">Subscribe</Link>
-            <Link href="/login" className="px-5 py-2 text-primary-400 hover:text-primary-300 transition-colors font-medium">
-              Login
-            </Link>
-            <Link href="/register" className="px-6 py-2.5 bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-500 hover:to-primary-600 rounded-lg transition-all shadow-lg shadow-primary-500/20 font-medium">
-              Sign Up
-            </Link>
-          </div>
-
-          {/* Mobile Menu Button */}
-          <button
-            className="md:hidden text-white p-2"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          >
-            {mobileMenuOpen ? <FiX size={24} /> : <FiMenu size={24} />}
-          </button>
-        </nav>
-
-        {/* Mobile Navigation */}
-        {mobileMenuOpen && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="md:hidden px-4 pb-4 space-y-2"
-          >
-            <Link href="/content" className="block py-2 hover:text-primary-400 transition">Content</Link>
-            <Link href="/news" className="block py-2 hover:text-primary-400 transition">News</Link>
-            <Link href="/subscriptions" className="block py-2 hover:text-primary-400 transition">Subscribe</Link>
-            <Link href="/login" className="block py-2 hover:text-primary-400 transition">Login</Link>
-            <Link href="/register" className="block py-2 bg-primary-600 rounded-lg text-center">Sign Up</Link>
-          </motion.div>
-        )}
-      </header>
+      {/* Navbar */}
+      <Navbar />
 
       {/* Hero Section */}
       <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden">

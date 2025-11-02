@@ -13,19 +13,61 @@ router.get('/', async (req, res) => {
 
     if (type) query.type = type;
     if (category) query.category = category;
+    
+    // Enhanced search with fallback to regex
     if (search) {
-      query.$text = { $search: search };
+      try {
+        // Try text search first (requires text index)
+        query.$text = { $search: search };
+      } catch (textError) {
+        // Fallback to regex search if text index not available
+        query.$or = [
+          { title: { $regex: search, $options: 'i' } },
+          { titleOromo: { $regex: search, $options: 'i' } },
+          { description: { $regex: search, $options: 'i' } },
+          { descriptionOromo: { $regex: search, $options: 'i' } },
+          { tags: { $in: [new RegExp(search, 'i')] } }
+        ];
+      }
     }
 
     const skip = (page - 1) * limit;
-    const content = await Content.find(query)
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(parseInt(limit))
-      .populate('createdBy', 'name')
-      .select('-contentOromo -descriptionOromo');
+    let content;
+    let total;
 
-    const total = await Content.countDocuments(query);
+    try {
+      // Try with text search first
+      const sort = search && query.$text ? { score: { $meta: 'textScore' }, createdAt: -1 } : { createdAt: -1 };
+      content = await Content.find(query)
+        .sort(sort)
+        .skip(skip)
+        .limit(parseInt(limit))
+        .populate('createdBy', 'name')
+        .select('-contentOromo -descriptionOromo');
+      total = await Content.countDocuments(query);
+    } catch (error) {
+      // If text search fails, use regex fallback
+      if (search && error.message?.includes('text index')) {
+        query.$text = undefined;
+        query.$or = [
+          { title: { $regex: search, $options: 'i' } },
+          { titleOromo: { $regex: search, $options: 'i' } },
+          { description: { $regex: search, $options: 'i' } },
+          { descriptionOromo: { $regex: search, $options: 'i' } },
+          { tags: { $in: [new RegExp(search, 'i')] } }
+        ];
+        delete query.$text;
+        content = await Content.find(query)
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(parseInt(limit))
+          .populate('createdBy', 'name')
+          .select('-contentOromo -descriptionOromo');
+        total = await Content.countDocuments(query);
+      } else {
+        throw error;
+      }
+    }
 
     res.json({
       content,
@@ -37,6 +79,7 @@ router.get('/', async (req, res) => {
       }
     });
   } catch (error) {
+    console.error('Content search error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });

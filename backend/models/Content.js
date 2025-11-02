@@ -39,6 +39,13 @@ const contentSchema = new mongoose.Schema({
   videoUrl: String,
   audioUrl: String,
   hlsUrl: String, // For adaptive streaming
+  youtubeVideoId: String, // YouTube video ID
+  youtubeEmbedUrl: String, // YouTube embed URL
+  source: {
+    type: String,
+    enum: ['upload', 'youtube', 'vimeo', 'other'],
+    default: 'upload'
+  },
   duration: Number, // in seconds
   quality: [{
     type: String,
