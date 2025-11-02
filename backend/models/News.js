@@ -51,8 +51,12 @@ const newsSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['draft', 'review', 'approved', 'published', 'archived'],
+    enum: ['draft', 'review', 'approved', 'published', 'archived', 'rejected'],
     default: 'draft'
+  },
+  rejectionReason: {
+    type: String,
+    trim: true
   },
   isBreaking: {
     type: Boolean,

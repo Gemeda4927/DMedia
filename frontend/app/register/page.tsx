@@ -59,7 +59,18 @@ export default function RegisterPage() {
     try {
       const response = await authApi.register(formData);
       setAuth(response.data.user, response.data.token);
-      router.push('/dashboard');
+      
+      // Redirect based on user role
+      const userRole = response.data.user?.role;
+      let redirectPath = '/dashboard';
+      
+      if (userRole === 'admin') {
+        redirectPath = '/admin';
+      } else if (userRole === 'creator' || userRole === 'subscriber' || userRole === 'viewer') {
+        redirectPath = '/dashboard';
+      }
+      
+      router.push(redirectPath);
     } catch (err: any) {
       setError(
         err.response?.data?.message || 
