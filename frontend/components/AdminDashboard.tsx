@@ -314,11 +314,19 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
                     </div>
                   </div>
                   <div className="flex gap-2">
+                    {item.status === 'review' && (
+                      <button
+                        onClick={() => handleApproveContent(item._id)}
+                        className="px-3 py-1 bg-green-600 hover:bg-green-700 rounded-lg text-sm transition-colors"
+                      >
+                        Approve
+                      </button>
+                    )}
                     <Link
-                      href={`/admin/content/${item._id}`}
+                      href={`/dashboard/content/${item._id}/edit`}
                       className="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm transition-colors"
                     >
-                      Manage
+                      Edit
                     </Link>
                   </div>
                 </div>
@@ -358,11 +366,26 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
                       Approve
                     </button>
                     <Link
-                      href={`/admin/content/${item._id}`}
+                      href={`/dashboard/content/${item._id}/edit`}
                       className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm transition-colors"
                     >
-                      Review
+                      Edit
                     </Link>
+                    <button
+                      onClick={async () => {
+                        if (confirm('Reject this content?')) {
+                          try {
+                            await adminApi.rejectContent(item._id, 'Rejected by admin');
+                            fetchDashboardData();
+                          } catch (error) {
+                            alert('Failed to reject content');
+                          }
+                        }
+                      }}
+                      className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-sm transition-colors"
+                    >
+                      Reject
+                    </button>
                   </div>
                 </div>
               ))}
