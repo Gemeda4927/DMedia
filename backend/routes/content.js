@@ -103,7 +103,7 @@ router.get('/:id', validateContentId, async (req, res) => {
     if (token) {
       try {
         const jwt = await import('jsonwebtoken');
-        const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+        const { JWT_SECRET } = await import('../utils/jwt.js');
         const decoded = jwt.verify(token, JWT_SECRET);
         const User = (await import('../models/User.js')).default;
         const user = await User.findById(decoded.userId);

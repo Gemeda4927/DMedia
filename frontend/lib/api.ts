@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
 const api = axios.create({
   baseURL: `${API_URL}/api`,
@@ -14,11 +14,92 @@ api.interceptors.request.use((config) => {
   if (typeof window !== 'undefined') {
     const token = localStorage.getItem('token');
     if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+      // Clean the token - remove any extra whitespace or "Bearer " prefix
+      const cleanToken = token.replace(/^Bearer\s+/i, '').trim();
+      config.headers.Authorization = `Bearer ${cleanToken}`;
+      
+      // Log token info (first 20 chars and last 10 chars for debugging, not full token)
+      const tokenPreview = cleanToken.length > 30 
+        ? `${cleanToken.substring(0, 20)}...${cleanToken.substring(cleanToken.length - 10)}`
+        : cleanToken;
+      
+      console.log('🟡 [API] Request interceptor - Token added to request:', {
+        url: config.url,
+        method: config.method,
+        hasToken: !!cleanToken,
+        tokenLength: cleanToken.length,
+        tokenPreview: tokenPreview,
+        headerValue: `Bearer ${cleanToken.substring(0, 20)}...`
+      });
+    } else {
+      console.log('🟡 [API] Request interceptor - No token found:', {
+        url: config.url,
+        method: config.method
+      });
     }
   }
   return config;
 });
+
+// Handle 401 errors - clear token and redirect to login
+api.interceptors.response.use(
+  (response) => {
+    console.log('✅ [API] Response successful:', {
+      url: response.config.url,
+      status: response.status
+    });
+    return response;
+  },
+  async (error) => {
+    console.log('🔴 [API] Response error:', {
+      url: error.config?.url,
+      method: error.config?.method,
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      message: error.response?.data?.message
+    });
+
+    if (error.response?.status === 401) {
+      // Clear invalid token and auth state
+      if (typeof window !== 'undefined') {
+        const currentPath = window.location.pathname;
+        const isAuthPage = currentPath.includes('/login') || currentPath.includes('/register');
+        const isAuthRequest = error.config?.url?.includes('/auth/login') || error.config?.url?.includes('/auth/register');
+        const isMeRequest = error.config?.url?.includes('/auth/me');
+        
+        console.log('🟡 [API] 401 error detected:', {
+          currentPath,
+          isAuthPage,
+          isAuthRequest,
+          isMeRequest,
+          errorUrl: error.config?.url
+        });
+        
+        // Don't clear state during login/register requests or on auth pages
+        // Also don't clear on /auth/me if it's the first request after login
+        if (!isAuthRequest && !isAuthPage && !isMeRequest) {
+          console.log('🟡 [API] Clearing auth state and redirecting...');
+          
+          // Import store dynamically to avoid circular dependency
+          const { useAuthStore } = await import('./store');
+          useAuthStore.getState().logout();
+          
+          // Dispatch custom event to notify components of logout
+          window.dispatchEvent(new CustomEvent('auth:logout'));
+          
+          // Redirect to login
+          if (window.location.pathname !== '/login') {
+            console.log('🟡 [API] Redirecting to login');
+            window.location.href = '/login';
+          }
+        } else {
+          console.log('🟡 [API] Skipping auth clear - auth request/page or /me endpoint');
+        }
+      }
+    }
+    return Promise.reject(error);
+  }
+);
 
 export const authApi = {
   register: (data: { email: string; password: string; name: string }) =>

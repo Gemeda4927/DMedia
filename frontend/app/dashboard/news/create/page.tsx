@@ -3,12 +3,14 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { FiSave, FiX } from 'react-icons/fi';
+import { FiSave, FiX, FiFileText } from 'react-icons/fi';
 import { newsApi } from '@/lib/api';
 import Navbar from '@/components/Navbar';
+import { useNotifications } from '@/lib/notifications';
 
 export default function CreateNewsPage() {
   const router = useRouter();
+  const { showSuccess, showError } = useNotifications();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
@@ -22,7 +24,39 @@ export default function CreateNewsPage() {
     status: 'draft',
   });
   const [tagInput, setTagInput] = useState('');
-  const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  const sampleData = {
+    title: 'Breaking: Major Development in Regional Politics',
+    excerpt: 'A significant political development has emerged today that could reshape the regional landscape. Experts are analyzing the implications of this major announcement.',
+    content: `In a landmark announcement today, regional leaders have come together to address critical issues facing the community. The development marks a turning point in regional governance and policy-making.
+
+The announcement was made during a high-profile gathering that included key stakeholders from various sectors. Observers note that this represents one of the most significant political movements in recent history.
+
+Key points of the announcement include:
+- Major policy reforms
+- Infrastructure development plans
+- Economic revitalization initiatives
+- Social welfare programs
+
+Community members have expressed mixed reactions to the news, with some welcoming the changes while others remain cautious about the implementation timeline.
+
+"This is a momentous occasion," said a local official. "We are committed to transparency and working closely with all community members to ensure successful implementation."
+
+The next steps involve detailed planning sessions and consultations with various interest groups to ensure broad-based support for the initiatives.`,
+    category: 'politics',
+    featuredImage: 'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?w=800&q=80',
+    tags: ['politics', 'regional', 'breaking', 'government'],
+    isBreaking: true,
+    isFeatured: false,
+    status: 'review',
+  };
+
+  const loadSampleData = () => {
+    setFormData(sampleData);
+    setFieldErrors({});
+    showSuccess('Sample data loaded. You can edit it before submitting.', 'Sample Data Loaded');
+  };
 
   const addTag = () => {
     if (tagInput.trim() && !formData.tags.includes(tagInput.trim())) {
@@ -43,14 +77,64 @@ export default function CreateNewsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    setFieldErrors({});
     setLoading(true);
 
     try {
       await newsApi.create(formData);
-      router.push('/dashboard');
+      showSuccess(
+        formData.status === 'review' 
+          ? 'News article submitted for review successfully!' 
+          : 'News article saved as draft successfully!',
+        'Success'
+      );
+      
+      // Wait a moment to show the success notification before redirecting
+      setTimeout(() => {
+        router.push('/dashboard');
+      }, 1500);
     } catch (err: any) {
-      setError(err.response?.data?.message || err.response?.data?.errors?.[0]?.msg || 'Failed to create news article');
+      const errorData = err.response?.data;
+      
+      // Handle validation errors from express-validator
+      if (errorData?.errors && Array.isArray(errorData.errors)) {
+        const errors: Record<string, string> = {};
+        const errorMessages: string[] = [];
+        
+        errorData.errors.forEach((error: any) => {
+          // express-validator uses 'param' for the field name
+          // Sometimes it might be nested like 'param.field' or just 'field'
+          let field = error.param || error.path || error.field;
+          const message = error.msg || error.message || String(error);
+          
+          // Extract field name if it's in format like 'param.field'
+          if (field && field.includes('.')) {
+            field = field.split('.').pop() || field;
+          }
+          
+          if (field) {
+            errors[field] = message;
+          }
+          
+          // Only add message if we have a valid one
+          if (message && typeof message === 'string') {
+            errorMessages.push(message);
+          }
+        });
+        
+        setFieldErrors(errors);
+        
+        // Show notification with all error messages
+        const errorMessage = errorMessages.length > 0 
+          ? errorMessages.join('. ') 
+          : 'Please check the form and fix the errors.';
+        
+        showError(errorMessage, 'Validation Failed', 7000);
+      } else {
+        // Handle other errors (mongoose validation or server errors)
+        const errorMessage = errorData?.message || err.message || 'Failed to create news article';
+        showError(errorMessage, 'Error', 5000);
+      }
     } finally {
       setLoading(false);
     }
@@ -66,20 +150,23 @@ export default function CreateNewsPage() {
         >
           <div className="flex items-center justify-between mb-8">
             <h1 className="text-3xl font-bold">Create News Article</h1>
-            <button
-              onClick={() => router.back()}
-              className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors flex items-center gap-2"
-            >
-              <FiX className="w-5 h-5" />
-              Cancel
-            </button>
-          </div>
-
-          {error && (
-            <div className="mb-6 bg-red-600/20 border border-red-600/50 text-red-400 px-4 py-3 rounded-lg">
-              {error}
+            <div className="flex gap-2">
+              <button
+                onClick={loadSampleData}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg transition-colors flex items-center gap-2"
+              >
+                <FiFileText className="w-5 h-5" />
+                Load Sample Data
+              </button>
+              <button
+                onClick={() => router.back()}
+                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors flex items-center gap-2"
+              >
+                <FiX className="w-5 h-5" />
+                Cancel
+              </button>
             </div>
-          )}
+          </div>
 
           <form onSubmit={handleSubmit} className="space-y-6 bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-xl p-8">
             <div className="grid md:grid-cols-2 gap-6">
@@ -89,9 +176,19 @@ export default function CreateNewsPage() {
                   type="text"
                   required
                   value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  className="w-full px-4 py-2 bg-gray-900 border border-gray-600 rounded-lg focus:outline-none focus:border-primary-500"
+                  onChange={(e) => {
+                    setFormData({ ...formData, title: e.target.value });
+                    if (fieldErrors.title) setFieldErrors({ ...fieldErrors, title: '' });
+                  }}
+                  className={`w-full px-4 py-2 bg-gray-900 border rounded-lg focus:outline-none ${
+                    fieldErrors.title 
+                      ? 'border-red-500 focus:border-red-500' 
+                      : 'border-gray-600 focus:border-primary-500'
+                  }`}
                 />
+                {fieldErrors.title && (
+                  <p className="mt-1 text-sm text-red-400">{fieldErrors.title}</p>
+                )}
               </div>
 
               <div>
@@ -99,8 +196,15 @@ export default function CreateNewsPage() {
                 <select
                   required
                   value={formData.category}
-                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                  className="w-full px-4 py-2 bg-gray-900 border border-gray-600 rounded-lg focus:outline-none focus:border-primary-500"
+                  onChange={(e) => {
+                    setFormData({ ...formData, category: e.target.value });
+                    if (fieldErrors.category) setFieldErrors({ ...fieldErrors, category: '' });
+                  }}
+                  className={`w-full px-4 py-2 bg-gray-900 border rounded-lg focus:outline-none ${
+                    fieldErrors.category 
+                      ? 'border-red-500 focus:border-red-500' 
+                      : 'border-gray-600 focus:border-primary-500'
+                  }`}
                 >
                   <option value="politics">Politics</option>
                   <option value="culture">Culture</option>
@@ -111,6 +215,9 @@ export default function CreateNewsPage() {
                   <option value="health">Health</option>
                   <option value="education">Education</option>
                 </select>
+                {fieldErrors.category && (
+                  <p className="mt-1 text-sm text-red-400">{fieldErrors.category}</p>
+                )}
               </div>
             </div>
 
@@ -121,11 +228,23 @@ export default function CreateNewsPage() {
                 rows={3}
                 maxLength={500}
                 value={formData.excerpt}
-                onChange={(e) => setFormData({ ...formData, excerpt: e.target.value })}
-                className="w-full px-4 py-2 bg-gray-900 border border-gray-600 rounded-lg focus:outline-none focus:border-primary-500"
+                onChange={(e) => {
+                  setFormData({ ...formData, excerpt: e.target.value });
+                  if (fieldErrors.excerpt) setFieldErrors({ ...fieldErrors, excerpt: '' });
+                }}
+                className={`w-full px-4 py-2 bg-gray-900 border rounded-lg focus:outline-none ${
+                  fieldErrors.excerpt 
+                    ? 'border-red-500 focus:border-red-500' 
+                    : 'border-gray-600 focus:border-primary-500'
+                }`}
                 placeholder="Short summary of the article..."
               />
-              <p className="text-xs text-gray-400 mt-1">{formData.excerpt.length}/500</p>
+              <div className="flex items-center justify-between mt-1">
+                <p className="text-xs text-gray-400">{formData.excerpt.length}/500</p>
+                {fieldErrors.excerpt && (
+                  <p className="text-sm text-red-400">{fieldErrors.excerpt}</p>
+                )}
+              </div>
             </div>
 
             <div>
@@ -134,9 +253,19 @@ export default function CreateNewsPage() {
                 required
                 rows={12}
                 value={formData.content}
-                onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                className="w-full px-4 py-2 bg-gray-900 border border-gray-600 rounded-lg focus:outline-none focus:border-primary-500 font-mono text-sm"
+                onChange={(e) => {
+                  setFormData({ ...formData, content: e.target.value });
+                  if (fieldErrors.content) setFieldErrors({ ...fieldErrors, content: '' });
+                }}
+                className={`w-full px-4 py-2 bg-gray-900 border rounded-lg focus:outline-none font-mono text-sm ${
+                  fieldErrors.content 
+                    ? 'border-red-500 focus:border-red-500' 
+                    : 'border-gray-600 focus:border-primary-500'
+                }`}
               />
+              {fieldErrors.content && (
+                <p className="mt-1 text-sm text-red-400">{fieldErrors.content}</p>
+              )}
             </div>
 
             <div>
@@ -145,9 +274,33 @@ export default function CreateNewsPage() {
                 type="url"
                 required
                 value={formData.featuredImage}
-                onChange={(e) => setFormData({ ...formData, featuredImage: e.target.value })}
-                className="w-full px-4 py-2 bg-gray-900 border border-gray-600 rounded-lg focus:outline-none focus:border-primary-500"
+                onChange={(e) => {
+                  setFormData({ ...formData, featuredImage: e.target.value });
+                  if (fieldErrors.featuredImage) setFieldErrors({ ...fieldErrors, featuredImage: '' });
+                }}
+                className={`w-full px-4 py-2 bg-gray-900 border rounded-lg focus:outline-none ${
+                  fieldErrors.featuredImage 
+                    ? 'border-red-500 focus:border-red-500' 
+                    : 'border-gray-600 focus:border-primary-500'
+                }`}
+                placeholder="https://example.com/image.jpg"
               />
+              {fieldErrors.featuredImage && (
+                <p className="mt-1 text-sm text-red-400">{fieldErrors.featuredImage}</p>
+              )}
+              {formData.featuredImage && !fieldErrors.featuredImage && (
+                <div className="mt-2">
+                  <img 
+                    src={formData.featuredImage} 
+                    alt="Featured preview" 
+                    className="max-w-xs rounded-lg border border-gray-600"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.style.display = 'none';
+                    }}
+                  />
+                </div>
+              )}
             </div>
 
             <div>
@@ -237,12 +390,12 @@ export default function CreateNewsPage() {
                 {loading ? (
                   <>
                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Creating...
+                    {formData.status === 'review' ? 'Submitting...' : 'Creating...'}
                   </>
                 ) : (
                   <>
                     <FiSave className="w-5 h-5" />
-                    Create Article
+                    {formData.status === 'review' ? 'Submit for Review' : 'Save as Draft'}
                   </>
                 )}
               </button>

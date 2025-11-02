@@ -113,7 +113,14 @@ const contentSchema = new mongoose.Schema({
 });
 
 // Indexes for search and filtering
-contentSchema.index({ title: 'text', description: 'text', titleOromo: 'text', descriptionOromo: 'text' });
+// Text index with explicit language to avoid MongoDB language override error
+// 'none' language means no language-specific stemming
+// language_override points to a non-existent field to prevent MongoDB from using
+// the document's 'language' field ('om' is not supported by MongoDB text indexes)
+contentSchema.index({ title: 'text', description: 'text', titleOromo: 'text', descriptionOromo: 'text' }, { 
+  default_language: 'none',
+  language_override: '_no_language_field'
+});
 contentSchema.index({ type: 1, category: 1, isPublished: 1 });
 contentSchema.index({ createdAt: -1 });
 contentSchema.index({ views: -1 });

@@ -7,7 +7,7 @@ import { useAuthStore } from '@/lib/store';
 import { useNotifications } from '@/lib/notifications';
 import VideoPlayer from '@/components/VideoPlayer';
 import Link from 'next/link';
-import { FiBookmark, FiBookmarkCheck, FiPlay } from 'react-icons/fi';
+import { FiBookmark, FiCheck, FiPlay } from 'react-icons/fi';
 
 export default function ContentDetailPage() {
   const params = useParams();
@@ -137,7 +137,7 @@ export default function ContentDetailPage() {
               className="p-3 bg-gray-800 hover:bg-gray-700 rounded-lg"
             >
               {isBookmarked ? (
-                <FiBookmarkCheck className="w-6 h-6 text-primary-500" />
+                <FiCheck className="w-6 h-6 text-primary-500" />
               ) : (
                 <FiBookmark className="w-6 h-6" />
               )}

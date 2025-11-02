@@ -168,6 +168,15 @@ router.post('/', authenticate, authorize('admin', 'creator'), validateNews, asyn
     if (error.code === 11000) {
       return res.status(400).json({ message: 'Slug already exists' });
     }
+    if (error.code === 17262) {
+      // MongoDB language override error - text index needs to be recreated
+      console.error('MongoDB text index language error:', error.message);
+      console.error('Run: npm run fix-indexes to fix this issue');
+      return res.status(500).json({ 
+        message: 'Database configuration error. Text index needs to be fixed.',
+        details: 'Please run "npm run fix-indexes" in the backend directory, then restart the server.'
+      });
+    }
     if (error.name === 'ValidationError') {
       return res.status(400).json({
         message: 'Validation error',
