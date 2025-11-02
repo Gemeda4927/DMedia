@@ -13,19 +13,61 @@ router.get('/', async (req, res) => {
     if (category) query.category = category;
     if (featured === 'true') query.isFeatured = true;
     if (breaking === 'true') query.isBreaking = true;
+    
+    // Enhanced search with fallback to regex
     if (search) {
-      query.$text = { $search: search };
+      try {
+        // Try text search first (requires text index)
+        query.$text = { $search: search };
+      } catch (textError) {
+        // Fallback to regex search if text index not available
+        query.$or = [
+          { title: { $regex: search, $options: 'i' } },
+          { titleOromo: { $regex: search, $options: 'i' } },
+          { excerpt: { $regex: search, $options: 'i' } },
+          { excerptOromo: { $regex: search, $options: 'i' } },
+          { tags: { $in: [new RegExp(search, 'i')] } }
+        ];
+      }
     }
 
     const skip = (page - 1) * limit;
-    const news = await News.find(query)
-      .sort({ publishedAt: -1, createdAt: -1 })
-      .skip(skip)
-      .limit(parseInt(limit))
-      .populate('author', 'name')
-      .select('-contentOromo -excerptOromo');
+    let news;
+    let total;
 
-    const total = await News.countDocuments(query);
+    try {
+      // Try with text search first
+      const sort = search && query.$text ? { score: { $meta: 'textScore' }, publishedAt: -1, createdAt: -1 } : { publishedAt: -1, createdAt: -1 };
+      news = await News.find(query)
+        .sort(sort)
+        .skip(skip)
+        .limit(parseInt(limit))
+        .populate('author', 'name')
+        .select('-contentOromo -excerptOromo');
+      total = await News.countDocuments(query);
+    } catch (error) {
+      // If text search fails, use regex fallback
+      if (search && error.message?.includes('text index')) {
+        query.$text = undefined;
+        query.$or = [
+          { title: { $regex: search, $options: 'i' } },
+          { titleOromo: { $regex: search, $options: 'i' } },
+          { excerpt: { $regex: search, $options: 'i' } },
+          { excerptOromo: { $regex: search, $options: 'i' } },
+          { tags: { $in: [new RegExp(search, 'i')] } }
+        ];
+        delete query.$text;
+        news = await News.find(query)
+          .sort({ publishedAt: -1, createdAt: -1 })
+          .skip(skip)
+          .limit(parseInt(limit))
+          .populate('author', 'name')
+          .select('-contentOromo -excerptOromo');
+        total = await News.countDocuments(query);
+      } else {
+        throw error;
+      }
+    }
 
     res.json({
       news,
@@ -37,6 +79,7 @@ router.get('/', async (req, res) => {
       }
     });
   } catch (error) {
+    console.error('News search error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });

@@ -70,5 +70,11 @@ export const notificationApi = {
   deleteAll: () => api.delete('/notifications'),
 };
 
+export const youtubeApi = {
+  fetchVideo: (url: string) => api.post('/youtube/fetch-video', { url }),
+  importVideo: (data: any) => api.post('/youtube/import-video', data),
+  search: (query: string, maxResults?: number) => api.get('/youtube/search', { params: { q: query, maxResults } }),
+};
+
 export default api;
 

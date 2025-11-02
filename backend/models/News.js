@@ -13,7 +13,7 @@ const newsSchema = new mongoose.Schema({
   slug: {
     type: String,
     required: true,
-    unique: true
+    unique: true  // unique: true automatically creates an index
   },
   excerpt: {
     type: String,
@@ -98,7 +98,7 @@ const newsSchema = new mongoose.Schema({
   timestamps: true
 });
 
-newsSchema.index({ slug: 1 });
+// Compound indexes (slug index is created automatically by unique: true)
 newsSchema.index({ category: 1, status: 1, publishedAt: -1 });
 newsSchema.index({ isBreaking: 1, isFeatured: 1 });
 newsSchema.index({ title: 'text', content: 'text', titleOromo: 'text', contentOromo: 'text' });
